@@ -1,14 +1,95 @@
-# CODEOWNERS - Enforcement Layer for Zone R & Zone P
-# Human code ownership enforcement according to Reviewer.md
+# ============================================================================
+# DentalAi — CODEOWNERS (Control Plane Enforcement, v2.0)
+# ============================================================================
+# ВНИМАНИЕ ПО СИНТАКСИСУ GITHUB:
+#   Побеждает ПОСЛЕДНЕЕ совпавшее правило, а не первое.
+#   Поэтому catch-all `*` стоит ПЕРВЫМ, а частные правила — ниже.
+#   (В версии 1.0 catch-all отсутствовал: любой файл, не перечисленный явно,
+#    не имел владельца и мог быть смержен без ревью — основная дыра.)
+#
+# ЭТОТ ФАЙЛ САМ ПО СЕБЕ НЕ ЯВЛЯЕТСЯ ENFORCEMENT.
+#   Без включённого branch protection на `main` с обязательным
+#   "Require review from Code Owners" — это декларация (Reviewer.md §10).
+#   Инструкция по включению: evolution/policy/BRANCH_PROTECTION.md
+# ============================================================================
 
-# Zone R: Regulated Core (Human Owner Required)
-/backend/app/services/geometry/ @VlaD-KH
-/backend/app/services/crown_gen/ @VlaD-KH
-/backend/app/services/cam/ @VlaD-KH
-/backend/app/services/qa/ @VlaD-KH
-/backend/app/services/mdr/ @VlaD-KH
-/shared/constants/ @VlaD-KH
+# ---------------------------------------------------------------------------
+# DEFAULT: всё принадлежит человеку-владельцу (fail-safe)
+# ---------------------------------------------------------------------------
+*                                       @VlaD-KH
 
-# Zone P: Policy Plane (Human Owner Required)
-/evolution/policy/ @VlaD-KH
-/CODEOWNERS @VlaD-KH
+# ---------------------------------------------------------------------------
+# ZONE R — REGULATED CORE (MDR EU 2017/745)
+# ---------------------------------------------------------------------------
+/backend/app/services/geometry/          @VlaD-KH
+/backend/app/services/crown_gen/         @VlaD-KH
+/backend/app/services/margin/            @VlaD-KH
+/backend/app/services/segmentation/      @VlaD-KH
+/backend/app/services/cam/               @VlaD-KH
+/backend/app/services/qa/                @VlaD-KH
+/backend/app/services/mdr/               @VlaD-KH
+/backend/app/services/ingestion/         @VlaD-KH
+/backend/app/services/order_service.py   @VlaD-KH
+/backend/app/mcp/server.py               @VlaD-KH
+/backend/app/api/orders_router.py        @VlaD-KH
+/backend/app/models/schemas.py           @VlaD-KH
+/backend/app/db/                         @VlaD-KH
+/shared/constants/                       @VlaD-KH
+/simulations/                            @VlaD-KH
+/bible.md                                @VlaD-KH
+
+# ---------------------------------------------------------------------------
+# ZONE P — POLICY / EVALUATION PLANE
+# Включая весь enforcement dependency graph (Reviewer.md §5)
+# ---------------------------------------------------------------------------
+/evolution/policy/                       @VlaD-KH
+/evolution/evaluator.py                  @VlaD-KH
+/evolution/mutation_api.py               @VlaD-KH
+/evolution/metrics/                      @VlaD-KH
+/evolution/ledger.jsonl                  @VlaD-KH
+/evolution/checkpoints/                  @VlaD-KH
+/CODEOWNERS                              @VlaD-KH
+/.github/                                @VlaD-KH
+
+# ---------------------------------------------------------------------------
+# ZONE I — INFRASTRUCTURE / SUPPLY CHAIN
+# ---------------------------------------------------------------------------
+/backend/Dockerfile                      @VlaD-KH
+/frontend/Dockerfile                     @VlaD-KH
+/docker-compose.yml                      @VlaD-KH
+/docker-compose.gpu.yml                  @VlaD-KH
+/backend/pyproject.toml                  @VlaD-KH
+/frontend/package.json                   @VlaD-KH
+/frontend/package-lock.json              @VlaD-KH
+/scripts/                                @VlaD-KH
+/.gitignore                              @VlaD-KH
+/.env.example                            @VlaD-KH
+
+# ---------------------------------------------------------------------------
+# ZONE T — TESTS (verification barrier)
+# ---------------------------------------------------------------------------
+/backend/tests/                          @VlaD-KH
+
+# ---------------------------------------------------------------------------
+# ZONE E HIGH-RISK — физически эволюционируемо, но требует человека
+# ---------------------------------------------------------------------------
+/prompts/agents/qa_agent.md              @VlaD-KH
+/prompts/agents/cam_agent.md             @VlaD-KH
+
+# ---------------------------------------------------------------------------
+# ZONE E — эволюционируемая плоскость
+# Владелец назначен и здесь: у агента НЕТ merge-прав ни при каком риске.
+# Разница между Zone E и Zone R не в наличии владельца, а в том, что
+# в Zone E агент вправе автономно ПОДГОТОВИТЬ кандидата (PR), а в Zone R — нет.
+# Уровень требуемого ревью задаётся risk_classification.yaml + CI.
+# ---------------------------------------------------------------------------
+/frontend/components/TelemetryDock.tsx   @VlaD-KH
+/frontend/components/AgentSwarmLogger.tsx @VlaD-KH
+/frontend/components/Viewport3D.tsx      @VlaD-KH
+/frontend/messages/                      @VlaD-KH
+/backend/app/mcp/orchestration/          @VlaD-KH
+/backend/app/agents/                     @VlaD-KH
+/prompts/agents/orchestrator.md          @VlaD-KH
+/evolution/experience/                   @VlaD-KH
+/evolution/backlog/                      @VlaD-KH
+/evolution/proposals/                    @VlaD-KH

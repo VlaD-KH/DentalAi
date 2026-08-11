@@ -2,19 +2,17 @@
 Тесты политик безопасности Reviewer.md, CORS и валидации FDI (Батч 27).
 """
 
-from pathlib import Path
 from app.models.schemas import AutonomousMode, OrderCreate
 from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import ValidationError
 
 
-def test_batch27_reviewer_policy_files_exist():
-    """Проверка наличия политик безопасности Reviewer.md (Zone R, Zone P, CODEOWNERS)."""
-    assert Path("evolution/policy/protected_paths.yaml").exists()
-    assert Path("evolution/policy/risk_classification.yaml").exists()
-    assert Path("CODEOWNERS").exists()
-    assert Path(".env.example").exists()
+# test_batch27_reviewer_policy_files_exist удалён (Batch 28, DentalAi_MASTER_TZ_v2.md Часть VII Шаг 5):
+# проверял только Path.exists(), что создавало ложное чувство защищённости
+# (Reviewer.md §18: "CONTROL PLANE IS DESCRIBED IN MARKDOWN" вместо "CONTROL PLANE EXISTS").
+# Заменён на backend/tests/test_batch28_control_plane_enforcement.py, который проверяет
+# фактическое поведение enforcement на 15 запрещённых diff + позитивный контроль.
 
 
 def test_batch27_invalid_fdi_validation():

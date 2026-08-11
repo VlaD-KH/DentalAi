@@ -1,22 +1,208 @@
-# Evolution Policy: Protected Paths (Zone R & Zone P)
-# Immutable boundaries for autonomous AI agents
+# ============================================================================
+# DentalAi — Control Plane: Protected Paths
+# ============================================================================
+# Назначение: определить границы репозитория, которые Self-Evolution Kernel
+#             НЕ МОЖЕТ изменить автономно.
+#
+# Авторитет:  Human Reviewer (Control-Plane Owner). Этот файл НЕ создаётся и
+#             НЕ изменяется агентами эволюции. Изменение — только через PR
+#             с approval CODEOWNERS.
+#
+# Enforcement: НЕ этот файл enforce-ит правила. Enforcement выполняется
+#             .github/workflows/control-plane-enforcement.yml по фактическому
+#             `git diff --name-only`, а не по заявлению агента о своей зоне.
+#             Этот YAML — источник данных для CI, а не сам барьер.
+#
+# ВАЖНО: default_policy = DENY. Всё, что не перечислено явно в zone_e,
+#        считается защищённым. Расширение zone_e — только решением человека.
+# ============================================================================
 
-version: "1.0"
+version: "2.0"
+supersedes: "1.0"
+baseline_commit: "TBD_AT_INSTALL"     # заполняется человеком при фиксации baseline
+reviewed_by: "VlaD-KH"
+reviewed_at: "2026-08-12"
+
+# ----------------------------------------------------------------------------
+# ГЛОБАЛЬНАЯ ПОЛИТИКА
+# ----------------------------------------------------------------------------
+default_policy:
+  # Любой путь, не совпавший явно с zone_e_evolvable_product, трактуется как
+  # PROTECTED. Это закрывает дыру v1.0, где неперечисленные пути были не определены.
+  unmatched_path: PROTECTED
+  # Патч, затрагивающий хотя бы один защищённый путь, не может быть
+  # автономно принят, независимо от результатов verification/evaluation.
+  mixed_diff_rule: MAX_RESTRICTION_WINS
+  # Авторитетный источник — git diff, а не поле "zone" в proposal.json
+  authority: "git diff --name-only origin/main...HEAD"
+
+# ----------------------------------------------------------------------------
+# ZONE R — REGULATED CORE
+# Клинически значимый код. MDR EU 2017/745. Автономная мутация ЗАПРЕЩЕНА.
+# ----------------------------------------------------------------------------
 zone_r_regulated_core:
-  - "backend/app/services/geometry/"
-  - "backend/app/services/crown_gen/"
-  - "backend/app/services/cam/"
-  - "backend/app/services/qa/"
-  - "backend/app/services/mdr/"
-  - "backend/app/db/schema.prisma"
-  - "shared/constants/thresholds.py"
-  - "shared/constants/fdi.py"
+  geometry_and_design:
+    - "backend/app/services/geometry/"
+    - "backend/app/services/crown_gen/"
+    - "backend/app/services/margin/"          # [ДОБАВЛЕНО v2] margin_detector определяет
+                                              # линию уступа → цементный зазор 30-40 мкм →
+                                              # прямой параметр безопасности изделия
+    - "backend/app/services/segmentation/"    # [ДОБАВЛЕНО v2] отсутствовал в v1.0,
+                                              # хотя указан в ТЗ §2.1; определяет
+                                              # соответствие FDI ↔ реальный зуб
+  manufacturing:
+    - "backend/app/services/cam/"
+    - "simulations/"                          # [ДОБАВЛЕНО v2] эмуляторы ЧПУ/печи —
+                                              # источник валидационных данных для QA
+  quality_and_compliance:
+    - "backend/app/services/qa/"
+    - "backend/app/services/mdr/"
+    - "backend/app/services/ingestion/"       # [ДОБАВЛЕНО v2] приём заказа = начало
+                                              # цепочки прослеживаемости MDR Annex XIII
+  data_and_contracts:
+    - "backend/app/db/"                       # [РАСШИРЕНО v2] был только schema.prisma;
+                                              # новый файл в db/ обходил защиту
+    - "backend/app/models/schemas.py"         # [ДОБАВЛЕНО v2] Pydantic-валидация FDI
+                                              # и допусков — обход = невалидный заказ
+    - "backend/app/services/order_service.py" # [ДОБАВЛЕНО v2] владелец AuditLog
+    - "shared/constants/"
+  orchestration_of_clinical_tools:
+    - "backend/app/mcp/server.py"             # [ДОБАВЛЕНО v2] КРИТИЧНО: этот файл
+                                              # вызывает geometry/QA/MDR и генерирует
+                                              # MDR-паспорт. В v1.0 не был защищён
+                                              # вообще — крупнейшая дыра.
+    - "backend/app/api/orders_router.py"      # [ДОБАВЛЕНО v2] приём файлов скана,
+                                              # персональные данные пациента
+  normative_source:
+    - "bible.md"                              # [ДОБАВЛЕНО v2] указан в ТЗ §2.1,
+                                              # отсутствовал в v1.0
 
+# ----------------------------------------------------------------------------
+# ZONE P — POLICY / EVALUATION PLANE
+# Механизм, ограничивающий агента. Агент не может изменить то, что его ограничивает.
+# ----------------------------------------------------------------------------
 zone_p_policy_plane:
-  - "evolution/policy/"
-  - "CODEOWNERS"
+  policy_definitions:
+    - "evolution/policy/"
+    - "CODEOWNERS"
+  enforcement_dependency_graph:
+    # [КРИТИЧНОЕ ДОБАВЛЕНИЕ v2 — Reviewer.md §5]
+    # Защиты protected_paths.yaml недостаточно, если агент может изменить код,
+    # который ЧИТАЕТ этот файл, и удалить проверку. Защищаем весь граф enforcement.
+    - "evolution/mutation_api.py"
+    - "evolution/evaluator.py"
+    - "evolution/metrics/"
+    - ".github/"                              # workflows, actions, любые permissions.
+                                              # В v1.0 не защищён → агент мог добавить
+                                              # workflow с write-правами (privilege escalation)
+  audit_trail:
+    - "evolution/ledger.jsonl"                # append-only; перезапись прошлых outcomes
+                                              # = фальсификация истории обучения
+    - "evolution/checkpoints/"
 
+# ----------------------------------------------------------------------------
+# ZONE I — INFRASTRUCTURE / SUPPLY CHAIN
+# [НОВАЯ ЗОНА v2] Не клиническая, но даёт escalation-вектор через зависимости.
+# ----------------------------------------------------------------------------
+zone_i_infrastructure:
+  - "backend/Dockerfile"
+  - "frontend/Dockerfile"
+  - "docker-compose.yml"
+  - "docker-compose.gpu.yml"
+  - "backend/pyproject.toml"                  # добавление пакета = произвольный код
+  - "frontend/package.json"
+  - "frontend/package-lock.json"
+  - "scripts/"
+  - ".env.example"
+  - ".gitignore"                              # сокрытие файлов от diff-проверки
+
+# ----------------------------------------------------------------------------
+# ZONE T — TESTS
+# [НОВАЯ ЗОНА v2] Особый режим: тесты — это barrier verification.
+# Агент, правящий тесты вместе с кодом, обходит verification.
+# ----------------------------------------------------------------------------
+zone_t_tests:
+  paths:
+    - "backend/tests/"
+  rule: TEST_CHANGE_ELEVATES_RISK
+  # Изменение теста ОДНОВРЕМЕННО с изменением продуктового кода в одном патче
+  # автоматически поднимает риск до HIGH и требует human approval.
+  # Изменение только тестов (без продуктового кода) — MEDIUM.
+  co_modification_with_product_code: HIGH
+  standalone_modification: MEDIUM
+
+# ----------------------------------------------------------------------------
+# ZONE E — EVOLVABLE PRODUCT PLANE
+# Явный allowlist. Только эти пути доступны автономной мутации.
+# [ИСПРАВЛЕНО v2] В v1.0 стояли "frontend/" и "backend/app/api/" целиком —
+# это давало агенту доступ к orders_router.py (данные пациента) и ко всему UI.
+# ----------------------------------------------------------------------------
 zone_e_evolvable_product:
-  - "frontend/"
-  - "backend/app/api/"
-  - "backend/app/agents/"
+  ui_presentational:
+    - "frontend/components/TelemetryDock.tsx"
+    - "frontend/components/AgentSwarmLogger.tsx"
+    - "frontend/components/Viewport3D.tsx"
+    - "frontend/app/globals.css"
+  ui_content:
+    - "frontend/messages/"                    # i18n-строки
+  orchestration_non_clinical:
+    - "backend/app/mcp/orchestration/"        # ПОКА НЕ СУЩЕСТВУЕТ. Создаётся в Phase 1
+                                              # как отдельный слой маршрутизации,
+                                              # ОТДЕЛЬНО от mcp/server.py (Zone R).
+    - "backend/app/agents/"                   # сейчас пустой; станет слоем ролей агентов
+  prompts:
+    - "prompts/agents/orchestrator.md"        # ПОКА НЕ СУЩЕСТВУЕТ. Создаётся в Phase 1.
+  evolution_working_data:
+    - "evolution/experience/"
+    - "evolution/backlog/"
+    - "evolution/proposals/"
+
+# ----------------------------------------------------------------------------
+# ОСОБЫЕ СЛУЧАИ: физически в Zone E, но риск HIGH
+# Принадлежность к Zone E НЕ означает право на auto-accept (Reviewer.md §6).
+# Полное сопоставление risk → action см. в risk_classification.yaml
+# ----------------------------------------------------------------------------
+zone_e_but_high_risk:
+  - path: "prompts/agents/qa_agent.md"
+    reason: "Промпт QA-агента влияет на решение о годности изделия"
+  - path: "prompts/agents/cam_agent.md"
+    reason: "Промпт CAM-агента влияет на параметры фрезеровки и усадки"
+
+# ----------------------------------------------------------------------------
+# ЗАЩИТА ОТ ПУТЕВЫХ ОБХОДОВ (Reviewer.md §5 — path aliasing)
+# ----------------------------------------------------------------------------
+anti_aliasing_rules:
+  - id: AA-01
+    rule: "Запрещено создание симлинков внутри репозитория"
+    check: "git diff --diff-filter=A --name-only | xargs -r test ! -L"
+  - id: AA-02
+    rule: "Запрещено создание альтернативных policy-директорий"
+    forbidden_patterns:
+      - "config/evolution*"
+      - "**/policy_override*"
+      - "**/protected_paths*"      # кроме evolution/policy/protected_paths.yaml
+      - "**/*codeowners*"          # кроме корневого CODEOWNERS
+  - id: AA-03
+    rule: "Новый Python-модуль в Zone R запрещён к созданию агентом"
+    note: "Добавление файла в защищённую директорию = защищённое изменение"
+  - id: AA-04
+    rule: "Запрещено переименование/перемещение файлов из Zone R/P/I в Zone E"
+    check: "git diff --diff-filter=R --name-status"
+
+# ----------------------------------------------------------------------------
+# КОМПОЗИЦИОННАЯ БЕЗОПАСНОСТЬ (Reviewer.md §12)
+# Защита от обхода серией индивидуально разрешённых патчей
+# ----------------------------------------------------------------------------
+compositional_rules:
+  - id: CR-01
+    rule: "Не более 3 автономно принятых патчей подряд без human checkpoint"
+    window: 3
+    action: REQUIRE_HUMAN_REVIEW
+  - id: CR-02
+    rule: "Совокупный diff за окно из 5 циклов не должен превышать 400 изменённых строк в Zone E без ревью"
+    window: 5
+    max_cumulative_lines: 400
+    action: REQUIRE_HUMAN_REVIEW
+  - id: CR-03
+    rule: "Два последовательных патча, затрагивающих orchestration + prompts, рассматриваются как один MEDIUM+ патч"
+    action: ESCALATE_RISK

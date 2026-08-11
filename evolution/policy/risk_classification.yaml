@@ -1,29 +1,363 @@
-# Evolution Policy: Risk Classification Matrix
-# Defines risk levels and autonomous mutation permissions
+# ============================================================================
+# DentalAi — Control Plane: Risk Classification
+# ============================================================================
+# Этот файл отвечает НЕ на вопрос «можно ли изменять файл?» (это
+# protected_paths.yaml), а на вопрос «какой уровень автономии допустим?».
+#
+# Авторитет:  Human Reviewer. Агент не может изменить этот файл.
+# Enforcement: .github/workflows/control-plane-enforcement.yml
+# ============================================================================
 
-version: "1.0"
+version: "2.0"
+supersedes: "1.0"
+depends_on: "evolution/policy/protected_paths.yaml"
+baseline_commit: "TBD_AT_INSTALL"
+reviewed_by: "VlaD-KH"
+
+# ----------------------------------------------------------------------------
+# СЕМАНТИКА УРОВНЕЙ РИСКА (Reviewer.md §14)
+# [ДОБАВЛЕНО v2] В v1.0 семантики не было вообще: поля autonomous_mutation
+# и human_approval_required могли быть одновременно true — неопределённое поведение.
+# ----------------------------------------------------------------------------
+risk_levels:
+  LOW:
+    autonomous_candidate: true
+    verification_required: true          # syntax + типы + тесты + protected-diff clean
+    evaluation_required: true            # deterministic evaluator.py на synthetic proxy
+    canary_required: false
+    human_approval_required: false       # accept только при прохождении ВСЕХ guardrails
+    fallback_on_guardrail_fail: ROLLBACK
+    description: "Презентационные изменения без влияния на данные и клинику"
+
+  MEDIUM:
+    autonomous_candidate: true
+    verification_required: true
+    evaluation_required: true
+    canary_required: true                # прогон на data/orders/test_fixtures/
+    human_approval_required: true        # кандидат готовится автономно, merge — человек
+    fallback_on_guardrail_fail: ROLLBACK
+    description: "Поведенческие изменения (маршрутизация, промпт оркестратора)"
+
+  HIGH:
+    autonomous_candidate: true           # агент может подготовить PR
+    verification_required: true
+    evaluation_required: true
+    canary_required: true
+    human_approval_required: true        # ОБЯЗАТЕЛЬНО, даже если все метрики зелёные
+    additional_reviewer_required: true   # второй человек / отдельный подтверждающий шаг
+    fallback_on_guardrail_fail: REJECT   # не rollback, а отказ — не вливать вовсе
+    description: "Влияет на решения, связанные с безопасностью изделия"
+
+  CRITICAL:
+    autonomous_candidate: false          # агент НЕ МОЖЕТ даже создать PR
+    verification_required: null
+    evaluation_required: null
+    canary_required: null
+    human_approval_required: true
+    agent_permitted_action: BACKLOG_ENTRY_ONLY
+    description: >
+      Клинический код / control plane / инфраструктура. Агент может лишь
+      зафиксировать наблюдение в evolution/backlog/ как рекомендацию человеку.
+      Никаких патчей, никаких PR.
+
+# ----------------------------------------------------------------------------
+# ПРАВИЛА РАЗРЕШЕНИЯ КОНФЛИКТОВ
+# [ДОБАВЛЕНО v2] В v1.0 порядок сопоставления не был определён.
+# ----------------------------------------------------------------------------
+resolution_rules:
+  match_strategy: MOST_SPECIFIC_PATH_WINS
+  # Более длинный (специфичный) префикс пути побеждает более общий.
+  # Пример: frontend/components/TelemetryDock.tsx (LOW) побеждает frontend/ (не указан → default)
+
+  default_risk_for_unmatched: CRITICAL
+  # [КРИТИЧНО] Всё, что не сопоставлено явно — CRITICAL, а не LOW.
+  # Это делает политику fail-safe: забытый путь не открывается, а закрывается.
+
+  mixed_diff_strategy: MAX_RISK_WINS
+  # Патч, затрагивающий LOW и HIGH одновременно, целиком считается HIGH.
+
+  diff_is_authoritative: true
+  # Уровень риска определяется по `git diff --name-only`, а НЕ по полю
+  # "risk" или "zone" в proposal.json. Модель может ошибиться или солгать.
+
+# ----------------------------------------------------------------------------
+# МАТРИЦА: ПУТЬ → РИСК
+# Порядок в файле не важен — применяется MOST_SPECIFIC_PATH_WINS.
+# ----------------------------------------------------------------------------
 matrix:
-  - path: "backend/app/services/"
-    risk: "CRITICAL"
-    autonomous_mutation: false
-    human_approval_required: true
 
+  # ---------- CRITICAL: Zone R (клиническое ядро) ----------
+  - path: "backend/app/services/geometry/"
+    risk: CRITICAL
+    zone: R
+    rationale: "Геометрия изделия; толщина стенки — параметр безопасности (bible.md §4.1)"
+
+  - path: "backend/app/services/crown_gen/"
+    risk: CRITICAL
+    zone: R
+    rationale: "Генерация реставраций; измерение толщины и площади коннекторов"
+
+  - path: "backend/app/services/margin/"
+    risk: CRITICAL
+    zone: R
+    rationale: "Линия уступа → цементный зазор 30-40 мкм → прилегание изделия"
+
+  - path: "backend/app/services/segmentation/"
+    risk: CRITICAL
+    zone: R
+    rationale: "Сопоставление FDI ↔ анатомия; ошибка = изделие не на тот зуб"
+
+  - path: "backend/app/services/cam/"
+    risk: CRITICAL
+    zone: R
+    rationale: "G-код, усадка циркония 1.20–1.25, позиционирование литников"
+
+  - path: "backend/app/services/qa/"
+    risk: CRITICAL
+    zone: R
+    rationale: "Формальный gate годности изделия перед производством"
+
+  - path: "backend/app/services/mdr/"
+    risk: CRITICAL
+    zone: R
+    rationale: "MDR Annex XIII — паспорт изделия, идентификация пациента"
+
+  - path: "backend/app/services/ingestion/"
+    risk: CRITICAL
+    zone: R
+    rationale: "Начало цепочки прослеживаемости заказа"
+
+  - path: "backend/app/services/order_service.py"
+    risk: CRITICAL
+    zone: R
+    rationale: "Владелец AuditLog — 10-летнее неизменяемое хранение MDR"
+
+  - path: "backend/app/mcp/server.py"
+    risk: CRITICAL
+    zone: R
+    rationale: "[v2] Вызывает все клинические инструменты и генерирует MDR-паспорт"
+
+  - path: "backend/app/api/orders_router.py"
+    risk: CRITICAL
+    zone: R
+    rationale: "[v2] Приём файлов скана и персональных данных пациента"
+
+  - path: "backend/app/models/schemas.py"
+    risk: CRITICAL
+    zone: R
+    rationale: "[v2] Валидация FDI и допусков"
+
+  - path: "backend/app/db/"
+    risk: CRITICAL
+    zone: R
+    rationale: "Prisma-схема: Order, AuditLog, MdrPassport, DiskInventory"
+
+  - path: "shared/constants/"
+    risk: CRITICAL
+    zone: R
+    rationale: "Пороги, допуски, FDI-карта — числовое определение безопасности"
+
+  - path: "simulations/"
+    risk: CRITICAL
+    zone: R
+    rationale: "[v2] Эмуляторы ЧПУ/печи — источник валидационных данных"
+
+  - path: "bible.md"
+    risk: CRITICAL
+    zone: R
+    rationale: "[v2] Нормативный источник истины проекта"
+
+  # ---------- CRITICAL: Zone P (control plane) ----------
   - path: "evolution/policy/"
-    risk: "CRITICAL"
-    autonomous_mutation: false
-    human_approval_required: true
+    risk: CRITICAL
+    zone: P
+    rationale: "Сам механизм ограничения агента"
 
-  - path: "frontend/components/TelemetryDock.tsx"
-    risk: "LOW"
-    autonomous_mutation: true
-    human_approval_required: false
+  - path: "evolution/evaluator.py"
+    risk: CRITICAL
+    zone: P
+    rationale: "[v2] Агент, меняющий evaluator, оценивает сам себя"
 
-  - path: "frontend/components/AgentSwarmLogger.tsx"
-    risk: "LOW"
-    autonomous_mutation: true
-    human_approval_required: false
+  - path: "evolution/mutation_api.py"
+    risk: CRITICAL
+    zone: P
+    rationale: "[v2] Точка применения мутаций; отключение проверок = обход всей политики"
+
+  - path: "evolution/metrics/"
+    risk: CRITICAL
+    zone: P
+    rationale: "[v2] Метрика, изменённая после кандидата, = metric gaming"
+
+  - path: "evolution/ledger.jsonl"
+    risk: CRITICAL
+    zone: P
+    rationale: "[v2] Append-only; перезапись = фальсификация истории обучения"
+
+  - path: "CODEOWNERS"
+    risk: CRITICAL
+    zone: P
+    rationale: "Механизм назначения человеческого владения"
+
+  - path: ".github/"
+    risk: CRITICAL
+    zone: P
+    rationale: "[v2] Workflows и permissions — прямой вектор privilege escalation"
+
+  # ---------- CRITICAL: Zone I (инфраструктура / supply chain) ----------
+  - path: "backend/pyproject.toml"
+    risk: CRITICAL
+    zone: I
+    rationale: "[v2] Добавление зависимости = исполнение произвольного кода"
+
+  - path: "frontend/package.json"
+    risk: CRITICAL
+    zone: I
+    rationale: "[v2] То же для npm"
+
+  - path: "frontend/package-lock.json"
+    risk: CRITICAL
+    zone: I
+
+  - path: "backend/Dockerfile"
+    risk: CRITICAL
+    zone: I
+
+  - path: "frontend/Dockerfile"
+    risk: CRITICAL
+    zone: I
+
+  - path: "docker-compose.yml"
+    risk: CRITICAL
+    zone: I
+
+  - path: "docker-compose.gpu.yml"
+    risk: CRITICAL
+    zone: I
+
+  - path: "scripts/"
+    risk: CRITICAL
+    zone: I
+
+  - path: ".gitignore"
+    risk: CRITICAL
+    zone: I
+    rationale: "[v2] Сокрытие файлов от diff-проверки"
+
+  # ---------- HIGH: Zone E физически, но влияет на безопасность ----------
+  - path: "prompts/agents/qa_agent.md"
+    risk: HIGH
+    zone: E
+    rationale: >
+      [ТЗ §6, Reviewer.md §6] Файл текстовый и лежит в Zone E, но промпт
+      QA-агента влияет на решение о годности изделия. Принадлежность к Zone E
+      НЕ даёт права на auto-accept.
+
+  - path: "prompts/agents/cam_agent.md"
+    risk: HIGH
+    zone: E
+    rationale: "Промпт CAM-агента влияет на параметры фрезеровки и усадки"
+
+  # ---------- HIGH: тесты, изменённые вместе с продуктовым кодом ----------
+  - path: "backend/tests/"
+    risk: MEDIUM
+    zone: T
+    conditional_escalation:
+      condition: "diff также затрагивает продуктовый код в том же PR"
+      escalate_to: HIGH
+    rationale: "[v2] Правка теста вместе с кодом обходит verification-барьер"
+
+  # ---------- MEDIUM: поведенческая логика ----------
+  - path: "backend/app/mcp/orchestration/"
+    risk: MEDIUM
+    zone: E
+    rationale: "Маршрутизация вызовов, ретраи, порядок агентов — не геометрия"
+    note: "Директория создаётся в Phase 1; до этого правило неактивно"
 
   - path: "backend/app/agents/"
-    risk: "MEDIUM"
-    autonomous_mutation: true
-    human_approval_required: true
+    risk: MEDIUM
+    zone: E
+    rationale: "Слой ролей агентов (сейчас пустой)"
+    note: >
+      [ИСПРАВЛЕНО v2] В v1.0 стояло autonomous_mutation:true И
+      human_approval_required:true одновременно — противоречие.
+      Теперь семантика MEDIUM определена явно в risk_levels.
+
+  - path: "prompts/agents/orchestrator.md"
+    risk: MEDIUM
+    zone: E
+    rationale: "Промпт оркестратора влияет на порядок, но не на клинические пороги"
+
+  # ---------- LOW: презентационный слой ----------
+  - path: "frontend/components/TelemetryDock.tsx"
+    risk: LOW
+    zone: E
+    rationale: "Визуализация телеметрии; не источник клинических данных"
+
+  - path: "frontend/components/AgentSwarmLogger.tsx"
+    risk: LOW
+    zone: E
+    rationale: "UX-логика отображения логов"
+
+  - path: "frontend/components/Viewport3D.tsx"
+    risk: LOW
+    zone: E
+    rationale: "3D-превью; отображение, не расчёт геометрии"
+
+  - path: "frontend/app/globals.css"
+    risk: LOW
+    zone: E
+
+  - path: "frontend/messages/"
+    risk: LOW
+    zone: E
+    rationale: "i18n-строки RU/EN/PL"
+
+  - path: "evolution/experience/"
+    risk: LOW
+    zone: E
+    rationale: "Рабочие данные наблюдений (append-only на уровне приложения)"
+
+  - path: "evolution/backlog/"
+    risk: LOW
+    zone: E
+
+  - path: "evolution/proposals/"
+    risk: LOW
+    zone: E
+
+# ----------------------------------------------------------------------------
+# ЗАПРЕЩЁННЫЕ МЕТРИКИ (anti-gaming, Ouroboros §17 → адаптация под DentalAi)
+# Метрики, которыми агент может напрямую управлять, не могут быть основанием accept.
+# ----------------------------------------------------------------------------
+forbidden_primary_metrics:
+  - model_self_confidence
+  - number_of_tool_calls
+  - number_of_backlog_items_created
+  - number_of_self_edits
+  - llm_quality_self_assessment
+  - internal_plan_length
+
+allowed_primary_metrics:
+  - median_agent_task_steps_to_completion
+  - websocket_log_delivery_rate
+  - dashboard_time_to_first_render_ms
+  - frontend_console_error_rate
+  - synthetic_order_pipeline_success_rate
+  - test_suite_pass_rate
+
+# ----------------------------------------------------------------------------
+# ЯВНЫЕ ЗАПРЕТЫ ДЛЯ ЛЮБОГО УРОВНЯ РИСКА
+# ----------------------------------------------------------------------------
+absolute_prohibitions:
+  - id: AP-01
+    rule: "Ни одна evolution-транзакция не может одновременно менять продукт и Zone P"
+  - id: AP-02
+    rule: "Определение метрики не может быть изменено в рамках той же транзакции, что и кандидат"
+  - id: AP-03
+    rule: "Агент не имеет merge-прав в main ни при каком уровне риска"
+  - id: AP-04
+    rule: "Автономный accept невозможен, если evaluation_type != synthetic_proxy с пройденными guardrails"
+  - id: AP-05
+    rule: "A/B-тестирование на реальных клинических заказах запрещено (MDR)"
+  - id: AP-06
+    rule: "Агент не может создавать или изменять данные пациента, MDR-паспорта, AuditLog"

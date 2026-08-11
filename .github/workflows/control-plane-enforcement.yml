@@ -1,0 +1,136 @@
+name: Control Plane Enforcement
+
+# ============================================================================
+# ТРЕТИЙ НЕЗАВИСИМЫЙ БАРЬЕР (Reviewer.md §11)
+# ----------------------------------------------------------------------------
+# CODEOWNERS отвечает на вопрос «кто должен одобрить».
+# Этот workflow отвечает на вопрос «можно ли принять автономно» —
+# и делает это по ФАКТИЧЕСКОМУ `git diff --name-only`, а НЕ по полю
+# "zone"/"risk" в proposal.json, которое пишет сама модель.
+#
+# Ключевой инвариант: при касании Zone R / P / I / T кандидат помечается
+# requires_human=true и НЕ МОЖЕТ пройти автономный accept, независимо от
+# результатов verification и evaluation.
+# ============================================================================
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  protected-diff-check:
+    name: Protected paths diff check
+    runs-on: ubuntu-latest
+    outputs:
+      requires_human: ${{ steps.check.outputs.requires_human }}
+      max_risk: ${{ steps.check.outputs.max_risk }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install pyyaml
+
+      - name: Compute actual diff
+        id: diff
+        run: |
+          git diff --name-only origin/${{ github.base_ref || 'main' }}...HEAD > /tmp/changed.txt
+          echo "--- Changed files ---"
+          cat /tmp/changed.txt
+
+      - name: Enforce control plane
+        id: check
+        run: python .github/scripts/enforce_control_plane.py /tmp/changed.txt
+
+      - name: Verify policy files are unmodified by this PR
+        run: |
+          # Отдельная жёсткая проверка: PR, изменяющий сам control plane,
+          # не может изменять ничего другого (absolute_prohibitions AP-01).
+          if grep -qE '^(evolution/policy/|evolution/evaluator\.py|evolution/mutation_api\.py|evolution/metrics/|CODEOWNERS|\.github/)' /tmp/changed.txt; then
+            OTHER=$(grep -vE '^(evolution/policy/|evolution/evaluator\.py|evolution/mutation_api\.py|evolution/metrics/|CODEOWNERS|\.github/)' /tmp/changed.txt || true)
+            if [ -n "$OTHER" ]; then
+              echo "::error::AP-01 VIOLATION — PR изменяет control plane И продуктовый код одновременно:"
+              echo "$OTHER"
+              exit 1
+            fi
+          fi
+
+      - name: Anti-aliasing — no symlinks
+        run: |
+          if git diff --diff-filter=A --name-only origin/${{ github.base_ref || 'main' }}...HEAD | while read -r f; do
+               [ -L "$f" ] && echo "$f"; done | grep -q .; then
+            echo "::error::AA-01 VIOLATION — добавлен симлинк"
+            exit 1
+          fi
+
+      - name: Anti-aliasing — no shadow policy files
+        run: |
+          if grep -qE '(config/evolution|policy_override|protected_paths|codeowners)' /tmp/changed.txt; then
+            if grep -vqE '^(evolution/policy/protected_paths\.yaml|CODEOWNERS)$' /tmp/changed.txt; then
+              grep -E '(config/evolution|policy_override|protected_paths|codeowners)' /tmp/changed.txt \
+                | grep -vE '^(evolution/policy/protected_paths\.yaml|CODEOWNERS)$' && {
+                  echo "::error::AA-02 VIOLATION — теневой policy-файл"; exit 1; } || true
+            fi
+          fi
+
+      - name: Anti-aliasing — no renames out of protected zones
+        run: |
+          RENAMED=$(git diff --diff-filter=R --name-status origin/${{ github.base_ref || 'main' }}...HEAD || true)
+          if echo "$RENAMED" | grep -qE 'backend/app/services/|shared/constants/|evolution/policy/|\.github/'; then
+            echo "::error::AA-04 VIOLATION — перемещение файла из защищённой зоны"
+            echo "$RENAMED"
+            exit 1
+          fi
+
+      - name: Detect test co-modification
+        run: |
+          if grep -q '^backend/tests/' /tmp/changed.txt; then
+            if grep -qE '^(backend/app/|frontend/|shared/)' /tmp/changed.txt; then
+              echo "::warning::Тесты изменены вместе с продуктовым кодом → риск повышен до HIGH"
+              echo "TEST_CO_MODIFICATION=true" >> "$GITHUB_ENV"
+            fi
+          fi
+
+      - name: Label PR
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "requires_human=${{ steps.check.outputs.requires_human }}"
+          echo "max_risk=${{ steps.check.outputs.max_risk }}"
+
+  block-autonomous-accept:
+    name: Block autonomous accept
+    runs-on: ubuntu-latest
+    needs: protected-diff-check
+    if: needs.protected-diff-check.outputs.requires_human == 'true'
+    steps:
+      - name: Fail — human review required
+        run: |
+          echo "::error::requires_human=true (max_risk=${{ needs.protected-diff-check.outputs.max_risk }})"
+          echo "Этот PR затрагивает защищённые пути или пути уровня HIGH/CRITICAL."
+          echo "Автономный accept невозможен. Требуется ревью и merge человеком."
+          exit 1
+
+  no-bot-merge:
+    name: Verify actor is not an automation account
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check actor
+        run: |
+          ACTOR="${{ github.actor }}"
+          echo "Actor: $ACTOR"
+          case "$ACTOR" in
+            *"[bot]"|*"-bot"|"github-actions")
+              echo "::warning::PR открыт автоматизацией. Merge должен выполнить человек."
+              ;;
+          esac
