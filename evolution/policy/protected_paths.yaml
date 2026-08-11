@@ -19,7 +19,7 @@
 
 version: "2.0"
 supersedes: "1.0"
-baseline_commit: "TBD_AT_INSTALL"     # заполняется человеком при фиксации baseline
+baseline_commit: "7da714f648a5d1beb27af469e7b7062b0859b9e9"     # заполняется человеком при фиксации baseline
 reviewed_by: "VlaD-KH"
 reviewed_at: "2026-08-12"
 

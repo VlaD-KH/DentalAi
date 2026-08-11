@@ -11,7 +11,7 @@
 version: "2.0"
 supersedes: "1.0"
 depends_on: "evolution/policy/protected_paths.yaml"
-baseline_commit: "TBD_AT_INSTALL"
+baseline_commit: "7da714f648a5d1beb27af469e7b7062b0859b9e9"
 reviewed_by: "VlaD-KH"
 
 # ----------------------------------------------------------------------------
