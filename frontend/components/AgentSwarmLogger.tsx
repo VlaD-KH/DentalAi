@@ -5,7 +5,7 @@ import React, { useState } from "react";
 interface LogEntry {
   timestamp: string;
   agent: string;
-  action: str;
+  action: string;
   status: "SUCCESS" | "WORKING" | "LOOPBACK";
 }
 
@@ -44,13 +44,52 @@ export const AgentSwarmLogger: React.FC = () => {
       <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1.5">
         <span className="text-[10px] text-slate-500 font-sans font-semibold">Quick Intervention Controls:</span>
         <div className="grid grid-cols-3 gap-1.5 text-[10px] font-sans">
-          <button className="py-1.5 px-2 rounded bg-slate-900 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400 transition-all font-medium">
+          <button
+            onClick={() =>
+              setLogs((prev) => [
+                ...prev,
+                {
+                  timestamp: new Date().toLocaleTimeString("ru-RU"),
+                  agent: "Operator (Manual)",
+                  action: "Intervention: Adjust margin line requested",
+                  status: "WORKING",
+                },
+              ])
+            }
+            className="py-1.5 px-2 rounded bg-slate-900 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400 transition-all font-medium"
+          >
             Подправить границу
           </button>
-          <button className="py-1.5 px-2 rounded bg-slate-900 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400 transition-all font-medium">
+          <button
+            onClick={() =>
+              setLogs((prev) => [
+                ...prev,
+                {
+                  timestamp: new Date().toLocaleTimeString("ru-RU"),
+                  agent: "Operator (Manual)",
+                  action: "Intervention: +0.1mm occlusal offset added",
+                  status: "WORKING",
+                },
+              ])
+            }
+            className="py-1.5 px-2 rounded bg-slate-900 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400 transition-all font-medium"
+          >
             Добавить 0.1 мм окклюзии
           </button>
-          <button className="py-1.5 px-2 rounded bg-cyan-500/20 border border-cyan-400 text-cyan-300 hover:bg-cyan-500/40 font-bold transition-all">
+          <button
+            onClick={() =>
+              setLogs((prev) => [
+                ...prev,
+                {
+                  timestamp: new Date().toLocaleTimeString("ru-RU"),
+                  agent: "Operator (Manual)",
+                  action: "Intervention: Transfer to CAM nesting triggered",
+                  status: "SUCCESS",
+                },
+              ])
+            }
+            className="py-1.5 px-2 rounded bg-cyan-500/20 border border-cyan-400 text-cyan-300 hover:bg-cyan-500/40 font-bold transition-all"
+          >
             Перенести в CAM
           </button>
         </div>

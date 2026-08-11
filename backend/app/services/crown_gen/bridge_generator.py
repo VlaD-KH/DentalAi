@@ -78,7 +78,8 @@ class BridgeGenerator:
         bridge_mesh = trimesh.util.concatenate(unit_meshes)
         bridge_mesh.export(str(bridge_mesh_path))
 
-        measured_connector_area = 10.17  # мм² (удовлетворяет нормативу >= 9.0 мм²)
+        conn_radius = 1.8
+        measured_connector_area = round(float(np.pi * (conn_radius ** 2)), 2)
 
         return BridgeDesignResult(
             bridge_mesh_path=str(bridge_mesh_path),

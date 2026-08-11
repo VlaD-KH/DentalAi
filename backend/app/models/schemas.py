@@ -37,11 +37,18 @@ class OrderCreate(BaseModel):
     clinic_name: str = Field(..., json_schema_extra={"example": "DentArt"}, description="Название клиники")
     doctor_name: str = Field(..., json_schema_extra={"example": "Д-р Иванов А.С."}, description="ФИО врача")
     patient_id: str = Field(..., json_schema_extra={"example": "PAT-9842"}, description="Идентификатор или ФИО пациента")
-    target_fdi: int = Field(..., ge=11, le=48, description="Номер зуба по номенклатуре FDI (11-48)")
+    target_fdi: int = Field(..., description="Номер зуба по номенклатуре FDI (11-48)")
     material: str = Field(default="Zirconia Upcera 3D Pro Multi", description="Материал реставрации")
     color_vita: str = Field(default="A2", description="Цвет по шкале VITA")
     due_date: datetime = Field(..., description="Срок сдачи работы")
     mode: AutonomousMode = Field(default=AutonomousMode.FULLY_AUTONOMOUS, description="Режим выполнения")
+
+    @field_validator("target_fdi")
+    def validate_fdi_number(cls, v):
+        from shared.constants.fdi import FDI_TOOTH_MAP
+        if v not in FDI_TOOTH_MAP:
+            raise ValueError(f"Номер зуба {v} не является допустимым по международному стандарту FDI (ISO 3950)!")
+        return v
 
 
 class OrderResponse(OrderCreate):

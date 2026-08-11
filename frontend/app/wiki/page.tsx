@@ -77,7 +77,7 @@ export default function WikiPage() {
               <p>Взаимодействие ИИ-моделей и геометрии осуществляется через FastMCP 3.x сервер на порту 8000.</p>
               <div className="p-4 rounded-lg bg-slate-950 border border-slate-800 space-y-2 font-mono text-xs">
                 <div className="text-cyan-400">✓ 14 Registered MCP Tools (segment, margin, crown, bridge, inlay, veneer, pmma, abutment, model, guide, mdr)</div>
-                <div className="text-emerald-400">✓ 3 MCP Resources: dental://scans/{id}, dental://crowns/{id}, dental://passports/{id}</div>
+                <div className="text-emerald-400">✓ 3 MCP Resources: dental://scans/[id], dental://crowns/[id], dental://passports/[id]</div>
               </div>
             </div>
           )}

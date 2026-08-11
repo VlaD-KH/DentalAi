@@ -17,7 +17,7 @@ export const TelemetryDock: React.FC = () => {
         {/* 1. 5-Axis CNC Mill Radial Gauge */}
         <div className="bg-slate-950/80 rounded-lg p-3 border border-slate-800/80 flex items-center gap-4">
           <div className="relative w-20 h-20 flex items-center justify-center">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+            <svg aria-label="Spindle RPM Gauge (45,000 RPM)" role="img" className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
               <path
                 className="text-slate-800"
                 strokeWidth="3.5"

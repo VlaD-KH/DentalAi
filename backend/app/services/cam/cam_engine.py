@@ -38,7 +38,13 @@ class CamEngine:
         )
 
 
-    def compile_5axis_gcode(self, crown_path: Path, output_gcode_path: Path) -> Path:
+    def compile_5axis_gcode(
+        self,
+        crown_path: Path,
+        output_gcode_path: Path,
+        fdi: int = 46,
+        order_id: str = "ORD-1042",
+    ) -> Path:
         """
         Компилирует 5-осевой G-код (ISO 6983) для фрезерования монолитной коронки.
         Включает 4 фазы обработки: черновую (2.0мм), получистовую (1.0мм), чистовую (0.6мм) и фиссурную (0.3мм).
@@ -47,7 +53,7 @@ class CamEngine:
 
         gcode_lines = [
             "( --- DENTALAI AUTONOMOUS 5-AXIS CNC G-CODE --- )",
-            f"( PROGRAM ID: CROWN_FDI_46 )",
+            f"( PROGRAM ID: CROWN_FDI_{fdi}_{order_id} )",
             f"( DISK DIAMETER: {ZIRCONIA_DISK_DIAMETER_MM} MM )",
             "G21 ( Metric Units )",
             "G90 ( Absolute Distance Mode )",

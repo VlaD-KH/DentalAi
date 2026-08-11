@@ -289,22 +289,33 @@ async def generate_surgical_guide(
 
 @mcp.tool()
 async def generate_cam_metadata(
-    crown_path: str, margin_curve_json: str, insertion_axis_json: str
+    crown_path: str, margin_curve_json: str, insertion_axis_json: str, order_id: str = "ORD-1042", fdi: int = 46
 ) -> ConstructionInfo:
     """
     Формирование метаданных проекта (.constructionInfo / XML) и компиляция G-кода для импорта в CAM-системы.
     """
+    import json
     from pathlib import Path
     from app.services.cam.cam_engine import cam_engine
 
-    gcode_path = Path("./data/output/crown_46.nc")
-    cam_engine.compile_5axis_gcode(Path(crown_path), gcode_path)
+    try:
+        margin_curve = json.loads(margin_curve_json) if margin_curve_json else [[10.0, 20.0, 5.2], [11.0, 21.0, 5.2]]
+    except Exception:
+        margin_curve = [[10.0, 20.0, 5.2], [11.0, 21.0, 5.2]]
+
+    try:
+        insertion_axis = json.loads(insertion_axis_json) if insertion_axis_json else [0.0, 0.0, 1.0]
+    except Exception:
+        insertion_axis = [0.0, 0.0, 1.0]
+
+    gcode_path = Path(f"./data/output/crown_{fdi}_{order_id}.nc")
+    cam_engine.compile_5axis_gcode(Path(crown_path), gcode_path, fdi=fdi, order_id=order_id)
 
     return ConstructionInfo(
-        order_id="ORD-1042",
+        order_id=order_id,
         crown_path=crown_path,
-        margin_curve=[[10.0, 20.0, 5.2], [11.0, 21.0, 5.2]],
-        insertion_axis=[0.0, 0.0, 1.0],
+        margin_curve=margin_curve,
+        insertion_axis=insertion_axis,
         material_identifier="Zirconia_Upcera_3D_Pro_Multi",
     )
 
@@ -320,18 +331,30 @@ async def generate_mdr_passport(
     from pathlib import Path
     from app.models.schemas import MdrPassportData
     from app.services.mdr.mdr_generator import mdr_generator
+    from app.services.order_service import order_service
+
+    order = await order_service.get_order(order_id)
+    patient_id = f"PAT-{order_id}"
+    doctor_name = "Attending Dentist"
+    clinic_name = "Dental Clinic"
+    fdi = 46
+
+    if order:
+        patient_id = f"PAT-{order.id}"
+        doctor_name = order.doctor_name or doctor_name
+        clinic_name = order.clinic_name or clinic_name
+        fdi = order.target_fdi
 
     data = MdrPassportData(
         order_id=order_id,
         passport_number=f"MDR-2026-{order_id}",
-        patient_id="PAT-9842",
-        doctor_name="Dr. Ivanov A.S.",
-        clinic_name="DentArt Clinic",
-        fdi=46,
+        patient_id=patient_id,
+        doctor_name=doctor_name,
+        clinic_name=clinic_name,
+        fdi=fdi,
         material_name=material,
         disk_lot_number=disk_lot,
     )
-
 
     output_dir = Path("./data/output")
     pdf_file = mdr_generator.generate_pdf_passport(data, output_dir)

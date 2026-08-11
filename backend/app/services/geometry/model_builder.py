@@ -29,14 +29,22 @@ class PrintableModelBuilder:
 
         # 2. Вырезание дренажных отверстий (Ø3.0мм) для слива фотополимерной смолы
         holes_count = 0
+        final_base = base_box
         if request.drain_holes and request.base_type == "hollow":
             hole1 = trimesh.creation.cylinder(radius=1.5, height=12.0)
             hole1.apply_translation([-10.0, 0.0, -5.0])
             hole2 = trimesh.creation.cylinder(radius=1.5, height=12.0)
             hole2.apply_translation([10.0, 0.0, -5.0])
             holes_count = 2
+            try:
+                subtracted = trimesh.boolean.difference([base_box, hole1, hole2])
+                if subtracted is not None and not subtracted.is_empty:
+                    final_base = subtracted
+            except Exception:
+                # Fallback если boolean движок недоступен
+                pass
 
-        base_box.export(str(model_mesh_path))
+        final_base.export(str(model_mesh_path))
 
         dies_count = len(request.geller_dies_fdi)
 

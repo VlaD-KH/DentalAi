@@ -38,7 +38,7 @@ class AbutmentGenerator:
             screw_channel.apply_transform(trimesh.transformations.rotation_matrix(rad, [1, 0, 0]))
 
         # Объединение геометрии
-        abutment_mesh = trimesh.util.concatenate([ti_base, emergence])
+        abutment_mesh = trimesh.util.concatenate([ti_base, emergence, screw_channel])
         abutment_mesh.export(str(res_path))
 
         return CustomAbutmentResult(

@@ -1,0 +1,14 @@
+# CODEOWNERS - Enforcement Layer for Zone R & Zone P
+# Human code ownership enforcement according to Reviewer.md
+
+# Zone R: Regulated Core (Human Owner Required)
+/backend/app/services/geometry/ @VlaD-KH
+/backend/app/services/crown_gen/ @VlaD-KH
+/backend/app/services/cam/ @VlaD-KH
+/backend/app/services/qa/ @VlaD-KH
+/backend/app/services/mdr/ @VlaD-KH
+/shared/constants/ @VlaD-KH
+
+# Zone P: Policy Plane (Human Owner Required)
+/evolution/policy/ @VlaD-KH
+/CODEOWNERS @VlaD-KH

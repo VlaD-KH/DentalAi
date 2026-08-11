@@ -52,11 +52,15 @@ class ToothSegmenter:
         sec2 = tooth_indices[(y_coords > percentiles[0]) & (y_coords <= percentiles[1])].tolist()
         sec3 = tooth_indices[y_coords > percentiles[1]].tolist()
 
-        # Зуб 46 (первый моляр) находится в основном секторе
+        # Динамическое назначение номеров FDI на основе запрошенного target_prep_fdi
+        prep_fdi = target_prep_fdi
+        prev_fdi = prep_fdi - 1 if prep_fdi > 11 else 11
+        next_fdi = prep_fdi + 1 if prep_fdi < 48 else 48
+
         teeth_labels = [
-            ToothLabel(fdi=46, vertex_indices=sec2, is_prep=True),
-            ToothLabel(fdi=45, vertex_indices=sec1, is_prep=False),
-            ToothLabel(fdi=47, vertex_indices=sec3, is_prep=False),
+            ToothLabel(fdi=prep_fdi, vertex_indices=sec2, is_prep=True),
+            ToothLabel(fdi=prev_fdi, vertex_indices=sec1, is_prep=False),
+            ToothLabel(fdi=next_fdi, vertex_indices=sec3, is_prep=False),
         ]
 
         return SegmentationResult(

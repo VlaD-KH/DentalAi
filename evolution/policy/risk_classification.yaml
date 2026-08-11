@@ -1,0 +1,29 @@
+# Evolution Policy: Risk Classification Matrix
+# Defines risk levels and autonomous mutation permissions
+
+version: "1.0"
+matrix:
+  - path: "backend/app/services/"
+    risk: "CRITICAL"
+    autonomous_mutation: false
+    human_approval_required: true
+
+  - path: "evolution/policy/"
+    risk: "CRITICAL"
+    autonomous_mutation: false
+    human_approval_required: true
+
+  - path: "frontend/components/TelemetryDock.tsx"
+    risk: "LOW"
+    autonomous_mutation: true
+    human_approval_required: false
+
+  - path: "frontend/components/AgentSwarmLogger.tsx"
+    risk: "LOW"
+    autonomous_mutation: true
+    human_approval_required: false
+
+  - path: "backend/app/agents/"
+    risk: "MEDIUM"
+    autonomous_mutation: true
+    human_approval_required: true

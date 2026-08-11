@@ -1,0 +1,22 @@
+# Evolution Policy: Protected Paths (Zone R & Zone P)
+# Immutable boundaries for autonomous AI agents
+
+version: "1.0"
+zone_r_regulated_core:
+  - "backend/app/services/geometry/"
+  - "backend/app/services/crown_gen/"
+  - "backend/app/services/cam/"
+  - "backend/app/services/qa/"
+  - "backend/app/services/mdr/"
+  - "backend/app/db/schema.prisma"
+  - "shared/constants/thresholds.py"
+  - "shared/constants/fdi.py"
+
+zone_p_policy_plane:
+  - "evolution/policy/"
+  - "CODEOWNERS"
+
+zone_e_evolvable_product:
+  - "frontend/"
+  - "backend/app/api/"
+  - "backend/app/agents/"

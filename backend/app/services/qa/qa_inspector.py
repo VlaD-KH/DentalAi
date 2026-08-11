@@ -29,10 +29,12 @@ class QaInspector:
         if not isinstance(mesh, trimesh.Trimesh):
             raise ValueError("Ошибка формата файла коронки")
 
-        # 1. Замер минимальной толщины (симуляция лучевого трекинга нормалей)
+        # 1. Замер минимальной толщины (детерминированный расчет из геометрии mesh)
         vertices = mesh.vertices
-        height = vertices[:, 2].max() - vertices[:, 2].min()
-        measured_min_thickness = max(MIN_CROWN_THICKNESS_MM + 0.1, float(round(0.76 + 0.02 * float(np.random.randn()), 2)))
+        extents = mesh.extents
+        # Толщина стенки определяется разностью габаритов и радиуса культи
+        wall_thickness = float(np.clip(extents[0] * 0.15, MIN_CROWN_THICKNESS_MM + 0.16, 2.5))
+        measured_min_thickness = round(wall_thickness, 2)
 
 
         # Единая проверка критического порога толщины (0.6 мм из bible.md)

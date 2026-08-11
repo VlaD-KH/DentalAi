@@ -1,13 +1,12 @@
 FROM python:3.11-slim
 
-# Установка системных зависимостей (Mesh/Blender библиотеки)
+# Установка системных зависимостей
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
     libgl1-mesa-glx \
     libglib2.0-0 \
-    blender \
     && rm -rf /var/lib/apt/lists/*
 
 # Установка пакетного менеджера uv
@@ -23,7 +22,7 @@ RUN uv pip install --system -e .[dev]
 COPY . .
 
 # Генерация Prisma-клиента
-RUN python -m prisma generate || true
+RUN python -m prisma generate
 
 EXPOSE 8000
 

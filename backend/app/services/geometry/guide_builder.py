@@ -42,6 +42,7 @@ class SurgicalGuideBuilder:
         for offset_x in [-12.0, 12.0]:
             win = trimesh.creation.cylinder(radius=2.0, height=8.0)
             win.apply_translation([offset_x, 15.0, 0.0])
+            guide_parts.append(win)
 
         guide_mesh = trimesh.util.concatenate(guide_parts)
         guide_mesh.export(str(guide_mesh_path))

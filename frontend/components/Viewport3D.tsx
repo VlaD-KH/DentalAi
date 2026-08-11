@@ -91,7 +91,7 @@ export const Viewport3D: React.FC = () => {
       {/* Шапка 3D Вьюера */}
       <div className="flex items-center justify-between p-3 bg-slate-950/80 border-b border-slate-800 z-10">
         <div className="flex items-center gap-2">
-          <span className="font-bold text-xs text-slate-200 tracking-wide font-mono">3D VIEW HettiRent</span>
+          <span className="font-bold text-xs text-slate-200 tracking-wide font-mono">3D CAD/CAM Viewport</span>
           <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">
             #46 Tooth Prep
           </span>
