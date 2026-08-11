@@ -6,14 +6,29 @@
 from typing import List, Literal
 from fastmcp import FastMCP
 from app.models.schemas import (
+    BridgeDesignRequest,
+    BridgeDesignResult,
     ConstructionInfo,
     CrownMeshResult,
+    CustomAbutmentResult,
+    InlayOnlayResult,
     MarginCurve,
     MarginPoint,
     MeshInfo,
+    PmmaCrownResult,
+    PrintableModelResult,
     SegmentationResult,
+    SurgicalGuideResult,
     ToothLabel,
+    VeneerResult,
 )
+
+
+
+
+
+
+
 from shared.constants.thresholds import MIN_CROWN_THICKNESS_MM
 
 # Инициализация FastMCP сервера
@@ -106,15 +121,170 @@ async def generate_crown_anatomy(
     return await crown_generator.generate_crown(margin_curve=margin, output_dir=output_dir, fdi=fdi)
 
 
+@mcp.tool()
+async def generate_bridge_restoration(
+    order_id: str, abutment_fdis: List[int], pontic_fdis: List[int]
+) -> BridgeDesignResult:
+    """
+    Генерация мостовидного протеза с расчетом единой оси посадки и усиленных коннекторов (>=9.0 мм²).
+    """
+    from pathlib import Path
+    from app.models.schemas import BridgeDesignRequest
+    from app.services.crown_gen.bridge_generator import bridge_generator
+    from app.services.margin.margin_detector import margin_detector
+    import trimesh
+
+    cone = trimesh.creation.cone(radius=4.5, height=7.0, sections=36)
+    margins = [
+        margin_detector.extract_margin_curve(cone, prep_fdi=fdi)
+        for fdi in abutment_fdis
+    ]
+
+    req = BridgeDesignRequest(
+        order_id=order_id,
+        abutment_fdis=abutment_fdis,
+        pontic_fdis=pontic_fdis,
+    )
+    output_dir = Path("./data/output")
+    return await bridge_generator.generate_bridge(req, margins, output_dir)
+
+
+@mcp.tool()
+async def generate_inlay_onlay(
+    order_id: str, fdi: int, restoration_type: str
+) -> InlayOnlayResult:
+    """
+    Генерация вкладки / накладки (Inlay, Onlay, Overlay) с контролем толщины дна полости (>=0.8мм).
+    """
+    from pathlib import Path
+    from app.models.schemas import InlayOnlayRequest, InlayOnlayType
+    from app.services.crown_gen.inlay_generator import inlay_generator
+    from app.services.margin.margin_detector import margin_detector
+    import trimesh
+
+    cone = trimesh.creation.cone(radius=4.5, height=7.0, sections=36)
+    margin = margin_detector.extract_margin_curve(cone, prep_fdi=fdi)
+
+    req = InlayOnlayRequest(
+        order_id=order_id,
+        fdi=fdi,
+        restoration_type=InlayOnlayType(restoration_type.upper()),
+    )
+    output_dir = Path("./data/output")
+    return await inlay_generator.generate_inlay_onlay(req, margin, output_dir)
+
+
+@mcp.tool()
+async def generate_veneer(
+    order_id: str, fdi: int, thickness_mm: float = 0.4
+) -> VeneerResult:
+    """
+    Генерация эстетического ультратонкого винира (0.3-0.5мм) из стеклокерамики E.max.
+    """
+    from pathlib import Path
+    from app.models.schemas import VeneerRequest
+    from app.services.crown_gen.veneer_generator import veneer_generator
+    from app.services.margin.margin_detector import margin_detector
+    import trimesh
+
+    cone = trimesh.creation.cone(radius=4.5, height=7.0, sections=36)
+    margin = margin_detector.extract_margin_curve(cone, prep_fdi=fdi)
+
+    req = VeneerRequest(
+        order_id=order_id,
+        fdi=fdi,
+        thickness_mm=thickness_mm,
+    )
+    output_dir = Path("./data/output")
+    return await veneer_generator.generate_veneer(req, margin, output_dir)
+
+
+@mcp.tool()
+async def generate_pmma_temporary(order_id: str, fdi: int) -> PmmaCrownResult:
+    """
+    Расчет 5-осевого G-кода фрезерования временной коронки из PMMA (25000 RPM, scale 1.00).
+    """
+    from pathlib import Path
+    from app.models.schemas import PmmaCrownRequest
+    from app.services.cam.pmma_cam_service import pmma_cam_service
+
+    req = PmmaCrownRequest(order_id=order_id, fdi=fdi)
+    output_dir = Path("./data/output")
+    return pmma_cam_service.compile_pmma_gcode(req, output_dir)
+
+
+@mcp.tool()
+async def generate_custom_abutment(
+    order_id: str, fdi: int, implant_system: str, screw_angle: float = 0.0
+) -> CustomAbutmentResult:
+    """
+    Генерация индивидуального абатмента с профилем прорезывания и шахтой винта под угол до 25 deg.
+    """
+    from pathlib import Path
+    from app.models.schemas import CustomAbutmentRequest
+    from app.services.crown_gen.abutment_generator import abutment_generator
+
+    req = CustomAbutmentRequest(
+        order_id=order_id,
+        fdi=fdi,
+        implant_system=implant_system,
+        screw_angle_deg=screw_angle,
+    )
+    output_dir = Path("./data/output")
+    return await abutment_generator.generate_abutment(req, output_dir)
+
+
+
+
+
+
+
+
+
+
 
 @mcp.tool()
 async def build_printable_model(
     scan_path: str, base_type: Literal["hollow", "solid"], drain_holes: bool
-) -> str:
+) -> PrintableModelResult:
     """
-    Генерация цоколя разборной 3D-модели челюсти со штампиками для 3D-печати через Headless Blender.
+    Подготовка 3D-печатной модели зубной дуги с цоколем, дренажными отверстиями для смолы и разборными штампиками.
     """
-    return f"/app/data/output/printable_model_{base_type}.stl"
+    from pathlib import Path
+    from app.models.schemas import PrintableModelRequest
+    from app.services.geometry.model_builder import model_builder
+
+    req = PrintableModelRequest(
+        order_id="PRINT-100",
+        scan_path=scan_path,
+        base_type=base_type,
+        drain_holes=drain_holes,
+        geller_dies_fdi=[46],
+    )
+    output_dir = Path("./data/output")
+    return await model_builder.build_printable_model(req, output_dir)
+
+
+@mcp.tool()
+async def generate_surgical_guide(
+    order_id: str, target_fdis: List[int], sleeve_diameter_mm: float = 5.0
+) -> SurgicalGuideResult:
+    """
+    Генерация навигационного хирургического шаблона с направляющими гильзами и смотровыми окнами прилегания.
+    """
+    from pathlib import Path
+    from app.models.schemas import SurgicalGuideRequest
+    from app.services.geometry.guide_builder import guide_builder
+
+    req = SurgicalGuideRequest(
+        order_id=order_id,
+        target_fdis=target_fdis,
+        sleeve_diameter_mm=sleeve_diameter_mm,
+    )
+    output_dir = Path("./data/output")
+    return await guide_builder.build_surgical_guide(req, output_dir)
+
+
 
 
 @mcp.tool()

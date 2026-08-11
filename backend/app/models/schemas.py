@@ -5,7 +5,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 from shared.constants.thresholds import MIN_CROWN_THICKNESS_MM
 
@@ -127,6 +127,154 @@ class CamNestingData(BaseModel):
     sprue_diameter_mm: float = 2.5
     sprue_margin_safety_offset_mm: float = 1.0
     status: str = "NESTED_SUCCESS"
+
+
+class BridgeDesignRequest(BaseModel):
+    """Запрос на моделирование мостовидного протеза."""
+    order_id: str
+    abutment_fdis: List[int] = Field(..., min_length=2, description="Номера опорных зубов (например, [45, 47])")
+    pontic_fdis: List[int] = Field(..., min_length=1, description="Номера промежуточных коронок/понтиков (например, [46])")
+    material: str = Field(default="Zirconia Upcera 3D Pro Multi")
+
+
+class BridgeDesignResult(BaseModel):
+    """Результат моделирования мостовидного протеза."""
+    bridge_mesh_path: str
+    unit_count: int
+    common_insertion_axis: List[float] = Field(default=[0.0, 0.0, 1.0], min_length=3, max_length=3)
+    connector_area_mm2: float = Field(..., ge=9.0, description="Измеренная площадь сечения коннекторов (мм²)")
+    qa_passed: bool = Field(default=True)
+    qa_notes: str
+
+
+class InlayOnlayType(str, Enum):
+    """Типы реставраций полостей."""
+    INLAY = "INLAY"
+    ONLAY = "ONLAY"
+    OVERLAY = "OVERLAY"
+
+
+class InlayOnlayRequest(BaseModel):
+    """Запрос на моделирование вкладки или накладки."""
+    order_id: str
+    fdi: int
+    restoration_type: InlayOnlayType = InlayOnlayType.INLAY
+    material: str = Field(default="Zirconia Upcera 3D Pro Multi")
+
+
+class InlayOnlayResult(BaseModel):
+    """Результат моделирования вкладки / накладки."""
+    restoration_mesh_path: str
+    fdi: int
+    restoration_type: InlayOnlayType
+    min_cavity_thickness_mm: float = Field(..., ge=0.8)
+    qa_passed: bool = Field(default=True)
+    qa_notes: str
+
+
+class VeneerRequest(BaseModel):
+    """Запрос на моделирование эстетического винира."""
+    order_id: str
+    fdi: int
+    thickness_mm: float = Field(default=0.4, ge=0.3, le=0.7)
+    material: str = Field(default="Lithium Disilicate E.max CAD")
+
+
+class VeneerResult(BaseModel):
+    """Результат моделирования ультратонкого винира."""
+    veneer_mesh_path: str
+    fdi: int
+    measured_thickness_mm: float = Field(..., ge=0.3)
+    qa_passed: bool = Field(default=True)
+    qa_notes: str
+
+
+class PmmaCrownRequest(BaseModel):
+    """Запрос на изготовление временной коронки из PMMA."""
+    order_id: str
+    fdi: int
+    material: str = Field(default="PMMA Multilayer Temp")
+
+
+class PmmaCrownResult(BaseModel):
+    """Результат расчета CAM фрезерования PMMA."""
+    gcode_path: str
+    fdi: int
+    spindle_rpm: int = Field(default=25000)
+    feed_rate_mm_min: float = Field(default=2200.0)
+    shrinkage_factor: float = Field(default=1.00)
+    qa_passed: bool = Field(default=True)
+    qa_notes: str
+
+
+class CustomAbutmentRequest(BaseModel):
+    """Запрос на моделирование индивидуального абатмента на импланте."""
+    order_id: str
+    fdi: int
+    implant_system: str = Field(default="Straumann Bone Level 4.1 Regular CrossFit")
+    ti_base_height_mm: float = Field(default=4.0)
+    screw_angle_deg: float = Field(default=0.0, ge=0.0, le=25.0)
+
+
+class CustomAbutmentResult(BaseModel):
+    """Результат моделирования индивидуального абатмента."""
+    abutment_mesh_path: str
+    fdi: int
+    implant_system: str
+    emergence_profile_valid: bool = Field(default=True)
+    screw_channel_angle_deg: float
+    qa_passed: bool = Field(default=True)
+    qa_notes: str
+
+
+class PrintableModelRequest(BaseModel):
+    """Запрос на подготовку 3D-печатной модели зубной дуги."""
+    order_id: str
+    scan_path: str
+    base_type: Literal["hollow", "solid"] = "hollow"
+    drain_holes: bool = True
+    geller_dies_fdi: List[int] = Field(default_factory=list)
+
+
+class PrintableModelResult(BaseModel):
+    """Результат подготовки 3D-печатной модели."""
+    model_mesh_path: str
+    base_type: str
+    drain_holes_count: int
+    removable_dies_count: int
+    qa_passed: bool = Field(default=True)
+    qa_notes: str
+
+
+class SurgicalGuideRequest(BaseModel):
+    """Запрос на моделирование навигационного хирургического шаблона."""
+    order_id: str
+    target_fdis: List[int] = Field(..., min_length=1)
+    sleeve_diameter_mm: float = Field(default=5.0)
+    sleeve_height_mm: float = Field(default=5.0)
+
+
+class SurgicalGuideResult(BaseModel):
+    """Результат моделирования хирургического шаблона."""
+    guide_mesh_path: str
+    sleeves_count: int
+    inspection_windows_count: int
+    qa_passed: bool = Field(default=True)
+    qa_notes: str
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
