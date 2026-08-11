@@ -1,0 +1,21 @@
+{
+  "app": {
+    "title": "DentalAi — Autonomous CAD/CAM Solo Lab",
+    "mode_autonomous": "Fully Autonomous",
+    "mode_supervised": "Supervised",
+    "status_online": "System Active",
+    "gpu_status": "GCP NVIDIA L4 (24GB VRAM)"
+  },
+  "zones": {
+    "orders": "B2B Order Queue",
+    "viewport": "3D CAD/CAM Viewport",
+    "agents": "AI Agent Swarm (FastMCP)",
+    "telemetry": "CNC & Furnace Telemetry"
+  },
+  "actions": {
+    "create_order": "New Order",
+    "upload_scan": "Upload 3D Scan",
+    "generate_crown": "Generate Crown",
+    "compile_gcode": "Compile G-Code"
+  }
+}

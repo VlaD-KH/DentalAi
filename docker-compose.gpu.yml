@@ -1,0 +1,31 @@
+version: '3.8'
+
+# GPU overlay для развертывания AI-сервисов с поддержкой NVIDIA CUDA
+services:
+  backend:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - USE_GPU=true
+
+  # vLLM инференс сервер для локальных моделей QA Inspector (Qwen2.5-VL / MiniCPM-V)
+  local-vlm:
+    image: vllm/vllm-openai:latest
+    container_name: dental_vlm
+    restart: always
+    command: --model Qwen/Qwen2.5-VL-7B-Instruct --quantization awq --gpu-memory-utilization 0.4 --port 8002
+    ports:
+      - "8002:8002"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

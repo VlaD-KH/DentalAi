@@ -1,0 +1,21 @@
+{
+  "app": {
+    "title": "DentalAi — Автономная CAD/CAM Лаборатория",
+    "mode_autonomous": "Полный Автомат",
+    "mode_supervised": "С Оператором",
+    "status_online": "Система Активна",
+    "gpu_status": "GCP NVIDIA L4 (24GB VRAM)"
+  },
+  "zones": {
+    "orders": "Очередь Заказов B2B",
+    "viewport": "3D CAD/CAM Viewport",
+    "agents": "Рой AI Агентов (FastMCP)",
+    "telemetry": "Телеметрия Оборудования ЧПУ & Печи"
+  },
+  "actions": {
+    "create_order": "Новый Заказ",
+    "upload_scan": "Загрузить 3D Скан",
+    "generate_crown": "Сгенерировать Коронку",
+    "compile_gcode": "Компилировать G-код"
+  }
+}

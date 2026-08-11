@@ -1,0 +1,21 @@
+{
+  "app": {
+    "title": "DentalAi — Autonomiczne Laboratorium CAD/CAM",
+    "mode_autonomous": "Pełna Autonomia",
+    "mode_supervised": "Z Operatorem",
+    "status_online": "System Aktywny",
+    "gpu_status": "GCP NVIDIA L4 (24GB VRAM)"
+  },
+  "zones": {
+    "orders": "Kolejka Zamówień B2B",
+    "viewport": "3D CAD/CAM Viewport",
+    "agents": "Rój Agentów AI (FastMCP)",
+    "telemetry": "Telemetria Sprzętu CNC i Pieca"
+  },
+  "actions": {
+    "create_order": "Nowe Zamówienie",
+    "upload_scan": "Prześlij Skan 3D",
+    "generate_crown": "Generuj Koronę",
+    "compile_gcode": "Kompiluj G-Kod"
+  }
+}

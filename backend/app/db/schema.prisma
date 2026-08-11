@@ -1,0 +1,165 @@
+// Prisma schema для проекта DentalAi (PostgreSQL)
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-py"
+}
+
+// Статусы обработки заказа
+enum OrderStatus {
+  RECEIVED          // Получен
+  SEGMENTING        // Сегментация челюсти
+  MARGIN_EXTRACTING // Извлечение уступа
+  CROWN_GENERATING  // Генерация коронки
+  QA_REVIEWING      // QA инспекция VLM
+  CAM_NESTING       // Раскрой в диске
+  GCODE_READY       // G-код готов
+  MILLING           // Фрезерование
+  SINTERING         // Спекание
+  COMPLETED         // Завершен
+  REJECTED          // Отклонен (требует доработки)
+}
+
+// Режимы работы системы
+enum AutonomousMode {
+  FULLY_AUTONOMOUS // Полный автомат
+  SUPERVISED       // Требует подтверждения оператора
+}
+
+// Модель заказа от стоматологии (B2B Order)
+model Order {
+  id              String         @id @default(uuid())
+  orderNumber     String         @unique // Например: #1042
+  clinicName      String         // Название клиники
+  doctorName      String         // ФИО врача
+  patientId       String         // Идентификатор / ФИО пациента
+  status          OrderStatus    @default(RECEIVED)
+  mode            AutonomousMode @default(FULLY_AUTONOMOUS)
+  targetFdi       Int            // Номер зуба по FDI (11–48)
+  material        String         @default("Zirconia Upcera 3D Pro Multi")
+  colorVita       String         @default("A2")
+  dueDate         DateTime       // Срок сдачи
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  scans           Scan[]
+  toothPreps      ToothPrep[]
+  crownResults    CrownGenResult[]
+  camNestings     CamNesting[]
+  mdrPassport     MdrPassport?
+  auditLogs       AuditLog[]
+
+  @@map("orders")
+}
+
+// 3D сканы челюстей
+model Scan {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  jawType     String   // "upper" | "lower"
+  filePath    String   // Путь к STL/PLY файлу
+  vertexCount Int      @default(0)
+  faceCount   Int      @default(0)
+  isManifold  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("scans")
+}
+
+// Данные сегментации зуба и уступной линии (Margin Line)
+model ToothPrep {
+  id              String   @id @default(uuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fdi             Int
+  marginPointsJson String  // Замкнутая 3D кривая уступа (JSON массив точек)
+  insertionAxis   String   // Вектор оси посадки [x, y, z]
+  accuracyScore   Float    @default(0.99)
+  createdAt       DateTime @default(now())
+
+  @@map("tooth_preps")
+}
+
+// Результат генерации коронки
+model CrownGenResult {
+  id                  String   @id @default(uuid())
+  orderId             String
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  crownMeshPath       String   // Путь к сгенерированной сетке коронки
+  minThicknessMm      Float    // Измеренная мин. толщина (мм)
+  cementSpacerMicrons Float    @default(35.0) // Зазоры под цемент (мкм)
+  marginalOffsetMm    Float    @default(0.8)  // Зона краевого прилегания (мм)
+  occlusalClearanceMm Float    @default(0.0)  // Окклюзионный клиренс (мм)
+  qaPassed            Boolean  @default(false)
+  qaNotes             String?  // Замечания QA Inspector VLM
+  createdAt           DateTime @default(now())
+
+  @@map("crown_results")
+}
+
+// Данные раскроя в циркониевом диске (Nesting)
+model CamNesting {
+  id            String   @id @default(uuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  diskLotNumber String   // Номер партии (LOT) диска
+  diskSlot      Int      @default(4)
+  sprueCount    Int      @default(2) // Количество литников
+  gcodePath     String?  // Путь к скомпилированному G-коду
+  millingTimeSec Int     @default(720) // Оценка времени (сек)
+  createdAt     DateTime @default(now())
+
+  @@map("cam_nestings")
+}
+
+// Паспорт медицинского изделия по MDR EU 2017/745 (Annex XIII)
+model MdrPassport {
+  id               String   @id @default(uuid())
+  orderId          String   @unique
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  passportNumber   String   @unique // Например: MDR-2026-1042
+  pdfPath          String   // Путь к сгенерированному PDF
+  zirconiaLot      String   // Партия циркония
+  stainingLot      String?  // Партия красителя
+  sinteringTempC   Float    @default(1530.0) // Температура спекания
+  declarationText  String   // Текст декларации Annex XIII
+  signedBy         String   @default("Solo Lab Operator")
+  createdAt        DateTime @default(now())
+
+  @@map("mdr_passports")
+}
+
+// Склад циркониевых дисков
+model DiskInventory {
+  id             String   @id @default(uuid())
+  lotNumber      String   @unique
+  materialName   String   // Например: Upcera 3D Pro Multi A2
+  thicknessMm    Float    // 14.0, 18.0, 22.0 мм
+  colorVita      String   // A1, A2, A3, B1...
+  usedPercentage Float    @default(0.0)
+  slotNumber     Int      @unique
+  isAvailable    Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@map("disk_inventory")
+}
+
+// Неизменяемый лог действий ИИ-агентов (Audit Trail)
+model AuditLog {
+  id        String   @id @default(uuid())
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  agentName String   // "CAD Specialist", "QA Inspector", etc.
+  toolCalled String  // Имя вызванного MCP инструмента
+  inputData String   // JSON входные аргументы
+  outputData String  // JSON результат
+  status    String   // "SUCCESS" | "ERROR" | "WARNING"
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}

@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # Реляционная база данных PostgreSQL для заказов, логов и аудита MDR
+  db:
+    image: postgres:16-alpine
+    container_name: dental_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dental_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dental_secret_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-dental_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dental_user} -d ${POSTGRES_DB:-dental_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Очередь сообщений и брокер задач Redis
+  redis:
+    image: redis:7-alpine
+    container_name: dental_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Бэкенд-сервер на FastAPI и FastMCP
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dental_backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-dental_user}:${POSTGRES_PASSWORD:-dental_secret_pass}@db:5432/${POSTGRES_DB:-dental_db}
+      - REDIS_URL=redis://redis:6379/0
+      - MCP_TRANSPORT=sse
+      - MCP_PORT=8000
+      - BLENDER_PATH=/usr/bin/blender
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./ai-models:/app/ai-models
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Фронтенд-дашборд на Next.js (Three.js 3D Viewport)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dental_frontend
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

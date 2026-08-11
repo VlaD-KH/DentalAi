@@ -1,0 +1,39 @@
+"""
+Общие константы и справочные типы проекта DentalAi.
+"""
+from shared.constants.fdi import FDI_TOOTH_MAP, ToothCategory, ToothQuadrant, get_tooth_info
+from shared.constants.thresholds import (
+    CEMENT_SPACER_MICRONS,
+    CEMENT_SPACER_MM,
+    CNC_BUR_FINISHING_MM,
+    CNC_BUR_FISSURE_MM,
+    CNC_BUR_ROUGHING_MM,
+    CNC_BUR_SEMI_FINISHING_MM,
+    MIN_CROWN_THICKNESS_MM,
+    OCCLUSAL_INTERFERENCE_LIMIT_MM,
+    RECOMMENDED_THICKNESS_MAX_MM,
+    RECOMMENDED_THICKNESS_MIN_MM,
+    SPRUE_DIAMETER_MM,
+    SPRUE_MARGIN_SAFETY_OFFSET_MM,
+    ZIRCONIA_DISK_DIAMETER_MM,
+)
+
+__all__ = [
+    "FDI_TOOTH_MAP",
+    "ToothQuadrant",
+    "ToothCategory",
+    "get_tooth_info",
+    "MIN_CROWN_THICKNESS_MM",
+    "RECOMMENDED_THICKNESS_MIN_MM",
+    "RECOMMENDED_THICKNESS_MAX_MM",
+    "CEMENT_SPACER_MICRONS",
+    "CEMENT_SPACER_MM",
+    "OCCLUSAL_INTERFERENCE_LIMIT_MM",
+    "ZIRCONIA_DISK_DIAMETER_MM",
+    "SPRUE_DIAMETER_MM",
+    "SPRUE_MARGIN_SAFETY_OFFSET_MM",
+    "CNC_BUR_ROUGHING_MM",
+    "CNC_BUR_SEMI_FINISHING_MM",
+    "CNC_BUR_FINISHING_MM",
+    "CNC_BUR_FISSURE_MM",
+]
