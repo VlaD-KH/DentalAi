@@ -51,6 +51,12 @@ services:
     volumes:
       - ./data:/app/data
       - ./ai-models:/app/ai-models
+      # build context для backend — ./backend, поэтому корневой shared/ никогда не
+      # попадает в образ (COPY . . копирует только backend/). Без этого монтирования
+      # `from shared.constants.thresholds import ...` (qa_inspector.py, schemas.py,
+      # crown_gen/*) падает ModuleNotFoundError при первом импорте — контейнер не
+      # стартует вообще. Найдено при верификации Задачи 0.4 (Phase 0).
+      - ./shared:/app/shared
     depends_on:
       db:
         condition: service_healthy

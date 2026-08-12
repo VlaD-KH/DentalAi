@@ -27,6 +27,34 @@ async def test_batch25_deterministic_qa_inspector(tmp_path: Path):
 
 
 @pytest.mark.asyncio
+async def test_batch25_qa_inspector_fails_on_thin_geometry(tmp_path: Path):
+    """
+    B.1 / Phase 0 Задача 0.4: измерение толщины обязано падать на заведомо
+    тонкой геометрии, а не только быть детерминированным на нормальной.
+
+    До фикса formula `clip(extents[0]*0.15, MIN_CROWN_THICKNESS_MM+0.16, 2.5)`
+    имела искусственный пол выше порога брака -> qa_passed физически не мог
+    стать False ни при какой геометрии. Раньше это скрывалось тем, что
+    единственный фикстур в этом файле (конус) и так был толстым.
+    """
+    thin_wall_file = tmp_path / "defective_thin_crown.stl"
+    # Умышленно дефектная стенка: 0.3мм, вдвое тоньше критического порога 0.6мм.
+    thin_wall = trimesh.creation.box(extents=[6.0, 6.0, 0.3])
+    thin_wall.export(str(thin_wall_file))
+
+    result = await qa_inspector.inspect_crown(thin_wall_file)
+
+    assert result["min_thickness_mm"] < 0.6, (
+        f"Измеренная толщина {result['min_thickness_mm']}мм должна отражать "
+        f"реальную геометрию (0.3мм стенка), а не пол формулы-заглушки."
+    )
+    assert result["qa_passed"] is False, (
+        "QA обязан забраковать деталь тоньше критического порога. "
+        "Если это падает — измерение толщины снова стало заглушкой."
+    )
+
+
+@pytest.mark.asyncio
 async def test_batch25_dynamic_connector_area(tmp_path: Path):
     """Проверка динамического расчета сечения коннекторов моста (B.3)."""
     cone = trimesh.creation.cone(radius=4.5, height=7.0, sections=36)

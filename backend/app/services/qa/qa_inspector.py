@@ -14,6 +14,29 @@ import trimesh
 class QaInspector:
     """Агент инспекции качества реставраций."""
 
+    @staticmethod
+    def _measure_min_wall_thickness(mesh: "trimesh.Trimesh") -> float:
+        """
+        Измеряет минимальную толщину стенки через raycasting: из каждой вершины
+        пускается луч внутрь тела вдоль обратной нормали, ищется первое пересечение
+        с противоположной стороной той же сетки. Минимум найденных расстояний —
+        это измеренная минимальная толщина стенки в мм.
+
+        Fail-safe (IMMUNE, принцип U — Unexpected states fail loud): если ни один луч
+        не нашёл пересечения (открытая/невалидная сетка), возвращаем 0.0, а не
+        какое-то правдоподобное на вид число — 0.0 гарантированно провалит проверку
+        порога и не создаст ложное чувство «замер прошёл успешно».
+        """
+        origins = mesh.vertices - mesh.vertex_normals * 1e-4  # сдвиг внутрь от поверхности
+        directions = -mesh.vertex_normals
+        locations, index_ray, _ = mesh.ray.intersects_location(
+            ray_origins=origins, ray_directions=directions, multiple_hits=False
+        )
+        if len(locations) == 0:
+            return 0.0
+        distances = np.linalg.norm(locations - origins[index_ray], axis=1)
+        return round(float(np.min(distances)), 2)
+
     async def inspect_crown(self, crown_mesh_path: Path, insertion_axis: List[float] = None) -> Dict:
         """
         Проводит визуальную и геометрическую проверку коронки:
@@ -29,12 +52,17 @@ class QaInspector:
         if not isinstance(mesh, trimesh.Trimesh):
             raise ValueError("Ошибка формата файла коронки")
 
-        # 1. Замер минимальной толщины (детерминированный расчет из геометрии mesh)
+        # 1. Замер минимальной толщины стенки через raycasting (nearest-surface distance).
+        # Для каждой вершины пускаем луч внутрь тела по нормали и ищем ближайшее
+        # пересечение с противоположной стенкой той же сетки — это и есть локальная
+        # толщина в этой точке. Минимум по всем вершинам = min_thickness_mm.
+        #
+        # ВАЖНО: раньше здесь была формула `clip(extents[0]*0.15, MIN+0.16, 2.5)` —
+        # у неё пол (MIN_CROWN_THICKNESS_MM + 0.16) был выше порога брака, из-за чего
+        # qa_passed физически не мог стать False ни при какой геометрии
+        # (Phase 0, Задача 0.4; см. backend/tests/test_batch25_qa_inspector_fails_on_thin_geometry).
         vertices = mesh.vertices
-        extents = mesh.extents
-        # Толщина стенки определяется разностью габаритов и радиуса культи
-        wall_thickness = float(np.clip(extents[0] * 0.15, MIN_CROWN_THICKNESS_MM + 0.16, 2.5))
-        measured_min_thickness = round(wall_thickness, 2)
+        measured_min_thickness = self._measure_min_wall_thickness(mesh)
 
 
         # Единая проверка критического порога толщины (0.6 мм из bible.md)
