@@ -135,6 +135,8 @@ Enforcement-скрипт протестирован на реальной коп
 
 ## Часть IV. ТЗ для AI-агентов (Claude Code / Antigravity 2.0)
 
+> **Механизм внимания вместо постоянного сопоставления описаний скиллов:** у каждой Задачи ниже — строка `Skills:` с конкретными скиллами из `.claude/skills/` (пакет agent-skills), которые нужно применить на этой Задаче, и в каком порядке по стадиям DEFINE→...→SHIP. Это статический якорь в файле, который читается при любой работе по ТЗ — сверяться с общей таблицей в Части XI не обязательно, она там для обоснования, а не как обязательный дополнительный проход.
+
 ### Общие правила для агента (действуют во всех фазах)
 
 ```
@@ -147,6 +149,9 @@ Enforcement-скрипт протестирован на реальной коп
 5. Не изменять тесты вместе с продуктовым кодом в одном PR.
 6. Перед началом фазы прочитать evolution/policy/*.yaml и убедиться,
    что задача не выходит за границы.
+7. Перед кодом — прочитать `Skills:` этой задачи и открыть соответствующий
+   `.claude/skills/<name>/SKILL.md`, а не полагаться на то, что скилл
+   подключится сам по описанию.
 ```
 
 ---
@@ -156,6 +161,7 @@ Enforcement-скрипт протестирован на реальной коп
 > Phase 0 выполняется агентом **под контролем человека через PR**, потому что затрагивает Zone R. Self-evolution kernel здесь ещё не работает.
 
 #### Задача 0.1 — Персистентность заказов (аудит C.1, C.2)
+**Skills:** `spec-driven-development` (зафиксировать критерий приёмки до кода) → `test-driven-development` (тест на рестарт контейнера должен упасть на текущем in-memory коде) → `security-and-hardening` (Zone R, база с PII) → `code-review-and-quality` перед PR.
 - Подключить Prisma-клиент: `from prisma import Prisma` в `backend/app/db/client.py`.
 - Переписать `OrderService` с `self._orders_db: Dict` на асинхронные запросы к PostgreSQL.
 - Сохранить существующий публичный интерфейс (`create_order`, `get_order`, `list_orders`, `update_status`), чтобы тесты batch10/26 не сломались по контракту.
@@ -163,26 +169,32 @@ Enforcement-скрипт протестирован на реальной коп
 - **Критерий приёмки:** заказ, созданный до `docker compose restart backend`, доступен после рестарта.
 
 #### Задача 0.2 — Реальный AuditLog (аудит B.8) 🔴 MDR-критично
+**Skills:** `security-and-hardening` (STRIDE: Repudiation — это ровно требование append-only лога) → `test-driven-development` (тест должен явно проверять, что `UPDATE audit_log` падает по правам БД, не просто по коду) → `doubt-driven-development` (высокие ставки — MDR/10-летнее хранение, прогнать adversarial-проверку до PR, не после) → `code-review-and-quality`.
 - Заменить `self._audit_logs: List[Dict]` на запись в таблицу `AuditLog` через Prisma.
 - Реализовать **append-only** на уровне БД: отозвать UPDATE/DELETE у роли приложения, оставить только INSERT/SELECT.
 - Писать запись при каждом: создании заказа, смене статуса, вызове MCP-инструмента, результате QA, генерации MDR-паспорта.
 - **Критерий приёмки:** попытка `UPDATE audit_log` из-под роли приложения завершается ошибкой прав БД, а не только отсутствием кода.
 
 #### Задача 0.3 — Аутентификация (аудит D.3)
+**Skills:** `security-and-hardening` (threat model — trust boundaries на `orders_router.py`, MCP, WS — до кода) → `test-driven-development` (тест: запрос без токена → 401, до того как появится сам auth-код) → `code-review-and-quality`.
 - JWT/OAuth на `orders_router.py`, MCP-сервере и WebSocket `/ws/logs`.
 - Убрать дефолтные креды из `config.py` (аудит D.2), только через `.env`.
 - Не пробрасывать порты `5432`/`6379` наружу в `docker-compose.yml` (D.4).
 - Валидация загружаемых файлов по magic bytes + лимит размера (D.5).
 
 #### Задача 0.4 — Реальные измерения геометрии (аудит B.1–B.4)
+**Skills:** `test-driven-development` (тест обязан падать на заведомо тонкой геометрии ДО фикса — иначе повторяем историю с `np.random`) → `debugging-and-error-recovery`, если raycasting даёт нестабильный результат.
 > Если ещё не сделано полностью: `measured_min_thickness` через raycasting/nearest-surface distance, `measured_connector_area` из фактического сечения, а не константа `10.17`.
 - **Критерий приёмки:** тест детерминирован (нет `np.random` без seed) и падает при подсовывании заведомо тонкой геометрии.
 
 #### Задача 0.5 — Живая связь MCP ↔ реальные данные (аудит A.5–A.7, B.5)
+**Skills:** `api-and-interface-design` (контракт `compile_5axis_gcode`/`generate_mdr_passport` перед реализацией) → `test-driven-development` → `code-review-and-quality`.
 - `compile_5axis_gcode` принимает `fdi`/`order_id`, PROGRAM ID формируется из них.
 - `generate_mdr_passport` берёт `patient_id`/`doctor_name`/`clinic_name` из БД по `order_id`, **не хардкод**.
 - Генеративные MCP-инструменты используют реальный меш по `prep_mesh_id`, а не `trimesh.creation.cone(...)`.
 - Использовать `ZIRCONIA_SHRINKAGE_FACTOR_MIN/MAX` из `thresholds.py` вместо хардкода `1.22` (аудит C.9).
+
+**На весь Phase 0, при любом шаге SHIP:** `ci-cd-and-automation` (CI-гейт уже обязателен) + `git-workflow-and-versioning` (атомарные коммиты, как делалось в этой сессии) + `documentation-and-adrs` (CHANGELOG-запись в том же коммите, не отдельным ретро-коммитом).
 
 **Definition of Done Phase 0:**
 ```
